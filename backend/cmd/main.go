@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
@@ -39,10 +40,19 @@ func main() {
 	// Initialize Redis
 	redisClient := storage.NewRedisClient()
 
-	// Set up Repository with both DB and Redis
+	// Initialize Gemini
+	ctx := context.Background()
+	geminiClient, err := storage.NewGeminiClient(ctx)
+	if err != nil {
+		log.Fatalf("❌ Could not connect to Gemini: %v", err)
+	}
+	log.Println("✅ Connected to Gemini")
+
+	// Combine all connections
 	connections := storage.Repository{
-		DB:          db,
-		RedisClient: redisClient,
+		DB:           db,
+		RedisClient:  redisClient,
+		GeminiClient: geminiClient,
 	}
 
 	// Set up Fiber app
@@ -63,7 +73,7 @@ func main() {
 		},
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowCredentials: true,
-		AllowMethods:     "GET,POST,OPTIONS,DELETE", 
+		AllowMethods:     "GET,POST,OPTIONS,DELETE,PATCH", 
 	}))
 
 	// Register all routes
