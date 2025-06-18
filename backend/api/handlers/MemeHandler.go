@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"github.com/SAURABH-CHOUDHARI/memecity/internals/models"
 	"github.com/SAURABH-CHOUDHARI/memecity/internals/services"
 	"github.com/SAURABH-CHOUDHARI/memecity/pkg/storage"
@@ -118,3 +120,34 @@ func GetMemeByID(conn storage.Repository) fiber.Handler {
 		return c.Status(fiber.StatusOK).JSON(meme)
 	}
 }
+
+func GetLeaderboard(conn storage.Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		limitParam := c.Query("limit", "10")   // default: 10
+		offsetParam := c.Query("offset", "0")  // default: 0
+
+		limit, err := strconv.Atoi(limitParam)
+		if err != nil || limit < 1 || limit > 50 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid limit (1-50 allowed)",
+			})
+		}
+
+		offset, err := strconv.Atoi(offsetParam)
+		if err != nil || offset < 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid offset",
+			})
+		}
+
+		memes, err := services.GetLeaderboardMemes(conn, limit, offset)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(memes)
+	}
+}
+	
