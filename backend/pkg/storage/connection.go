@@ -9,13 +9,15 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/genai"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 type Repository struct {
-	DB          *gorm.DB
-	RedisClient *redis.Client
+	DB           *gorm.DB
+	RedisClient  *redis.Client
+	GeminiClient *genai.Client
 }
 
 // ---- Redis Init ----
@@ -30,7 +32,7 @@ func NewRedisClient() *redis.Client {
 
 	client := redis.NewClient(&redis.Options{
 		Addr:     addr,
-		Username: "default", 
+		Username: "default",
 		Password: pass,
 		DB:       0,
 	})
@@ -90,6 +92,25 @@ func NewPostgresConnection() (*gorm.DB, error) {
 	return db, nil
 }
 
+// ----Gemini Client ----
+
+func NewGeminiClient(ctx context.Context) (*genai.Client, error) {
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		return nil, fmt.Errorf("GEMINI_API_KEY not set")
+	}
+
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  apiKey,
+		Backend: genai.BackendGeminiAPI,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
+	}
+
+	return client, nil
+}
+
 // ---- Final Init Function ----
 
 func NewRepository() (*Repository, error) {
@@ -99,15 +120,21 @@ func NewRepository() (*Repository, error) {
 	}
 
 	redisClient := NewRedisClient()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("redis ping failed: %w", err)
 	}
 
+	geminiClient, err := NewGeminiClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Repository{
-		DB:          db,
-		RedisClient: redisClient,
+		DB:           db,
+		RedisClient:  redisClient,
+		GeminiClient: geminiClient,
 	}, nil
 }
