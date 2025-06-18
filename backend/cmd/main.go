@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 
+	"github.com/SAURABH-CHOUDHARI/memecity/db/indexes"
 	"github.com/SAURABH-CHOUDHARI/memecity/db/migrate"
 	"github.com/SAURABH-CHOUDHARI/memecity/internals/routes"
 	"github.com/SAURABH-CHOUDHARI/memecity/pkg/storage"
@@ -36,6 +37,9 @@ func main() {
 	if os.Getenv("RUN_MIGRATIONS") == "true" {
 		migrate.AutoMigrate(db)
 	}
+
+	// ✅ Run index creation logic
+	indexes.CreateIndexes(db)
 
 	// Initialize Redis
 	redisClient := storage.NewRedisClient()
