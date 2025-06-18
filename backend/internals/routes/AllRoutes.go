@@ -12,5 +12,6 @@ func AllRoutes(app *fiber.App, conn storage.Repository) {
     
     
     UserRoutes(api, conn)
+	MemeRoutes(api, conn)
 
 }
