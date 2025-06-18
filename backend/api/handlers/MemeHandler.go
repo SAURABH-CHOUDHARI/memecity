@@ -97,3 +97,24 @@ func ToggleMemeOnSale(conn storage.Repository) fiber.Handler {
 			})
 	}
 }
+
+func GetMemeByID(conn storage.Repository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		memeIDStr := c.Params("id")
+		memeID, err := uuid.Parse(memeIDStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid meme ID",
+			})
+		}
+
+		var meme models.Meme
+		if err := conn.DB.Preload("Owner").First(&meme, "id = ?", memeID).Error; err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "meme not found",
+			})
+		}
+
+		return c.Status(fiber.StatusOK).JSON(meme)
+	}
+}
