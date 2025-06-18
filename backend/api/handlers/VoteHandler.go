@@ -33,7 +33,9 @@ func VoteMeme(conn storage.Repository) fiber.Handler {
 
 		user := c.Locals("user").(models.User)
 
-		if err := services.VoteOnMeme(conn, user.ID, memeID, req.Type); err != nil {
+		// ✅ Updated to handle message + error from service
+		message, err := services.VoteOnMeme(conn, user.ID, memeID, req.Type)
+		if err != nil {
 			code := fiber.StatusInternalServerError
 			if errors.Is(err, services.ErrInvalidVoteType) {
 				code = fiber.StatusBadRequest
@@ -44,8 +46,9 @@ func VoteMeme(conn storage.Repository) fiber.Handler {
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"message": "vote recorded",
+			"message": message,
 		})
 	}
 }
+
 
