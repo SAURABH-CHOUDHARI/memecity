@@ -109,11 +109,11 @@ func PlaceBid(conn storage.Repository, userID uuid.UUID, memeIDStr string, bidAm
 		}
 
 		// Fetch updated credits and cache them
-		var updatedUser models.User
-		if err := tx.First(&updatedUser, "id = ?", user.ID).Error; err == nil {
-			data, _ := json.Marshal(updatedUser)
-			conn.RedisClient.Set(ctx, userCacheKey, data, 10*time.Minute)
-		}
+	var updatedUser models.User
+	if err := tx.First(&updatedUser, "id = ?", user.ID).Error; err == nil {
+		data, _ := json.Marshal(updatedUser)
+		conn.RedisClient.Set(ctx, userCacheKey, data, 10*time.Minute)
+	}
 
 		return nil
 	})

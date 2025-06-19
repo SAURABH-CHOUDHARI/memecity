@@ -40,7 +40,8 @@ func PlaceBid(conn storage.Repository) fiber.Handler {
 		}
 
 		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-			"message": "bid placed successfully",
+			"memeId": memeID, 
+			"message": "success",
 		})
 	}
 }
