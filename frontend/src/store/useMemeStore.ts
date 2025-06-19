@@ -6,6 +6,7 @@ interface MemeStore {
     memes: Meme[]
     setMemes: (memes: Meme[]) => void
     updateVotes: (id: string, type: 'up' | 'down', action: 'created' | 'flipped' | 'removed') => void
+    updateVoteData: (id: string, voteData: { upvotes: number, downvotes: number, userVote: 'up' | 'down' | null }) => void
     addMeme: (meme: Meme) => void
 }
 
@@ -32,6 +33,22 @@ export const useMemeStore = create<MemeStore>((set) => ({
                     downvotes: action === 'flipped' ? meme.downvotes + 1 : meme.downvotes + delta,
                     upvotes: action === 'flipped' ? meme.upvotes - 1 : meme.upvotes,
                 }
+            }
+        })
+
+        return { memes: updated }
+    }),
+
+    // New method to directly update vote data from backend
+    updateVoteData: (id, voteData) => set((state) => {
+        const updated = state.memes.map((meme) => {
+            if (meme.ID !== id) return meme
+
+            return {
+                ...meme,
+                upvotes: voteData.upvotes,
+                downvotes: voteData.downvotes,
+                userVote: voteData.userVote,
             }
         })
 

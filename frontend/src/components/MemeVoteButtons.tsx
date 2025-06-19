@@ -1,10 +1,10 @@
-// components/MemeVoteButtons.tsx
 "use client"
 
 import { useState } from "react"
 import axios from "axios"
 import { Button } from "@/components/ui/button"
 import { useMemeStore } from "@/store/useMemeStore"
+import { toast } from "sonner"
 
 type Props = {
     memeId: string
@@ -22,7 +22,7 @@ export default function MemeVoteButtons({
     type,
 }: Props) {
     const [isLoading, setIsLoading] = useState(false)
-    const { memes, updateVotes } = useMemeStore()
+    const { memes, updateVoteData } = useMemeStore()
     
     // Try to get updated data from store, fallback to props
     const storeMeme = memes.find(m => m.ID === memeId)
@@ -44,14 +44,19 @@ export default function MemeVoteButtons({
 
             if (res.status === 200) {
                 const { meme: updatedMeme } = res.data
-                updateVotes(memeId, {
+                
+                // Use the new updateVoteData method
+                updateVoteData(memeId, {
                     upvotes: updatedMeme.upvotes,
                     downvotes: updatedMeme.downvotes,
-                    userVote: updatedMeme.userVote // You still need this from backend
+                    userVote: updatedMeme.userVote
                 })
+
+                toast.success(`${type === "up" ? "Upvoted" : "Downvoted"} successfully!`)
             }
         } catch (err) {
             console.error("Vote failed", err)
+            toast.error("Vote failed. Please try again.")
         } finally {
             setIsLoading(false)
         }
