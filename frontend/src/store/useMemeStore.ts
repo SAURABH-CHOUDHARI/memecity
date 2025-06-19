@@ -1,34 +1,42 @@
 // store/useMemeStore.ts
-import { create } from "zustand"
-import { Meme } from "@/types/meme"
+import { create } from 'zustand'
+import { Meme } from '@/types/meme'
 
-type MemeStore = {
+interface MemeStore {
     memes: Meme[]
-    setMemes: (data: Meme[]) => void
-    updateVotes: (
-        id: string, 
-        update: {
-            upvotes: number
-            downvotes: number
-            userVote?: "up" | "down" | null
-        }
-    ) => void
+    setMemes: (memes: Meme[]) => void
+    updateVotes: (id: string, type: 'up' | 'down', action: 'created' | 'flipped' | 'removed') => void
+    addMeme: (meme: Meme) => void
 }
 
 export const useMemeStore = create<MemeStore>((set) => ({
     memes: [],
-    setMemes: (data) => set({ memes: data }),
-    updateVotes: (id, update) =>
-        set((state) => ({
-            memes: state.memes.map((m) =>
-                m.ID === id
-                    ? {
-                        ...m,
-                        upvotes: update.upvotes,
-                        downvotes: update.downvotes,
-                        userVote: update.userVote
-                    }
-                    : m
-            ),
-        })),
+
+    setMemes: (memes) => set({ memes }),
+
+    updateVotes: (id, type, action) => set((state) => {
+        const updated = state.memes.map((meme) => {
+            if (meme.ID !== id) return meme
+
+            const delta = action === 'created' ? 1 : action === 'flipped' ? 1 : -1
+
+            if (type === 'up') {
+                return {
+                    ...meme,
+                    upvotes: action === 'flipped' ? meme.upvotes + 1 : meme.upvotes + delta,
+                    downvotes: action === 'flipped' ? meme.downvotes - 1 : meme.downvotes,
+                }
+            } else {
+                return {
+                    ...meme,
+                    downvotes: action === 'flipped' ? meme.downvotes + 1 : meme.downvotes + delta,
+                    upvotes: action === 'flipped' ? meme.upvotes - 1 : meme.upvotes,
+                }
+            }
+        })
+
+        return { memes: updated }
+    }),
+
+    addMeme: (meme) => set((state) => ({ memes: [meme, ...state.memes] }))
 }))

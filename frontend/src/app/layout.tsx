@@ -4,6 +4,8 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/providers/theme-provider"
+import MatrixBackground from "@/components/Bits/MatrixBackground";
+import GlitchCursor from "@/components/Bits/GlitchCursor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +39,8 @@ export default function RootLayout({
         >
         <Navbar/>
         <Toaster/>
+        <MatrixBackground/>
+        <GlitchCursor/>
           {children}
         </ThemeProvider>
       </body>

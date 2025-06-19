@@ -13,14 +13,18 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Skeleton } from "@/components/ui/skeleton"
 import axios from "axios"
 import { navItems } from "@/config/navigation"
 import { createUserMenuItems } from "@/config/userMenu"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { useHydration } from "@/hooks/useHydration"
+import FuzzyText from "./Bits/FuzzyText"
 
 export default function Navbar() {
     const pathname = usePathname()
     const router = useRouter()
+    const hydrated = useHydration()
     const { user, setUser } = useUserStore()
 
     const logout = async () => {
@@ -47,8 +51,15 @@ export default function Navbar() {
 
     return (
         <nav className="w-full border-b border-border bg-background px-4 py-3 flex justify-between items-center shadow-sm">
-            <Link href="/" className="text-xl font-bold tracking-wide">
-                MemeCity
+            <Link href="/" className="text-lg font-bold tracking-wide">
+                <FuzzyText
+                    baseIntensity={0.1}
+                    hoverIntensity={0.3}
+                    enableHover={true}
+                    fontSize={30}
+                >
+                    MemeCity
+                </FuzzyText>
             </Link>
 
             <div className="flex items-center gap-4">
@@ -67,10 +78,14 @@ export default function Navbar() {
                 ))}
 
                 <ThemeToggle />
-                {user ? (
+
+                {!hydrated ? (
+                    // Loading state during hydration
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                ) : user ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Avatar className="h-8 w-8 cursor-pointer">
+                            <Avatar className="h-10 w-10 cursor-pointer">
                                 <AvatarImage src={user.profilePic || ""} alt={user.username} />
                                 <AvatarFallback>{user.username?.[0]?.toUpperCase() || "U"}</AvatarFallback>
                             </Avatar>

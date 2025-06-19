@@ -67,25 +67,25 @@ export default function MemeUploadForm() {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <Input placeholder="Meme Title" {...register("title")} />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 bg-black/90 p-6 rounded-lg border border-green-500 shadow-[0_0_12px_#00ff00] text-green-300 font-mono">
+            <Input placeholder="Meme Title" {...register("title")} className="bg-zinc-900 border border-green-600 text-green-200 placeholder:text-green-500" />
             {errors.title && <p className="text-sm text-red-500">{errors.title.message}</p>}
 
-            <Textarea placeholder="Give Caption or let AI take care of it..." {...register("caption")} />
+            <Textarea placeholder="Give Caption or let AI take care of it..." {...register("caption")} className="bg-zinc-900 border border-green-600 text-green-200 placeholder:text-green-500" />
             {errors.caption && <p className="text-sm text-red-500">{errors.caption.message}</p>}
 
-            <Input placeholder="Image URL" {...register("image_url")} />
+            <Input placeholder="Image URL" {...register("image_url")} className="bg-zinc-900 border border-green-600 text-green-200 placeholder:text-green-500" />
             {errors.image_url && (
                 <p className="text-sm text-red-500">{errors.image_url.message}</p>
             )}
 
-            <Input placeholder="Tags (comma-separated)" {...register("tags")} />
+            <Input placeholder="Tags (comma-separated)" {...register("tags")} className="bg-zinc-900 border border-green-600 text-green-200 placeholder:text-green-500" />
 
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="bg-green-700 hover:bg-green-600 text-black font-bold">
                 {loading ? "Uploading..." : "Upload Meme"}
             </Button>
 
-            {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
+            {msg && <p className="text-sm text-green-400">{msg}</p>}
         </form>
     );
 }
