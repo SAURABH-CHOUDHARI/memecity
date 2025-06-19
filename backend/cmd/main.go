@@ -72,9 +72,7 @@ func main() {
 		Expiration: 1 * time.Minute,
 	}))
 	app.Use(cors.New(cors.Config{
-		AllowOriginsFunc: func(origin string) bool {
-			return origin == "*"
-		},
+		AllowOrigins: "http://localhost:3000",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowCredentials: true,
 		AllowMethods:     "GET,POST,OPTIONS,DELETE,PATCH",
