@@ -12,12 +12,15 @@ import (
 	"google.golang.org/genai"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"github.com/SAURABH-CHOUDHARI/memecity/internals/ws"
 )
+
 
 type Repository struct {
 	DB           *gorm.DB
 	RedisClient  *redis.Client
 	GeminiClient *genai.Client
+	Hub          *ws.Hub
 }
 
 // ---- Redis Init ----
