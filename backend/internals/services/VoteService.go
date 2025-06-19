@@ -18,122 +18,109 @@ var (
 	ErrMemeNotFound    = errors.New("meme not found")
 )
 
-func VoteOnMeme(conn storage.Repository, userID uuid.UUID, memeID uuid.UUID, voteType string) (string, error) {
-	ctx := context.Background()
+func VoteOnMeme(conn storage.Repository, userID uuid.UUID, memeID uuid.UUID, voteType string) (string, models.Meme, error) {
+    ctx := context.Background()
 
-	// ----- Fetch Meme (try Redis) -----
-	var meme models.Meme
-	memeCacheKey := "meme:" + memeID.String()
-	if val, err := conn.RedisClient.Get(ctx, memeCacheKey).Result(); err == nil {
-		_ = json.Unmarshal([]byte(val), &meme)
-	} else {
-		if err := conn.DB.First(&meme, "id = ?", memeID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return "", ErrMemeNotFound
-			}
-			return "", err
-		}
-		data, _ := json.Marshal(meme)
-		conn.RedisClient.Set(ctx, memeCacheKey, data, 10*time.Minute)
-	}
+    var meme models.Meme
+    memeCacheKey := "meme:" + memeID.String()
 
-	// ----- Fetch User (try Redis) -----
-	var user models.User
-	userCacheKey := "user:" + userID.String()
-	if val, err := conn.RedisClient.Get(ctx, userCacheKey).Result(); err == nil {
-		_ = json.Unmarshal([]byte(val), &user)
-	} else {
-		if err := conn.DB.First(&user, "id = ?", userID).Error; err != nil {
-			return "", err
-		}
-		data, _ := json.Marshal(user)
-		conn.RedisClient.Set(ctx, userCacheKey, data, 10*time.Minute)
-	}
+    if val, err := conn.RedisClient.Get(ctx, memeCacheKey).Result(); err == nil {
+        _ = json.Unmarshal([]byte(val), &meme)
+    } else {
+        if err := conn.DB.First(&meme, "id = ?", memeID).Error; err != nil {
+            if errors.Is(err, gorm.ErrRecordNotFound) {
+                return "", meme, ErrMemeNotFound
+            }
+            return "", meme, err
+        }
+    }
 
-	// ----- Normalize vote type -----
-	var isUpvote bool
-	switch voteType {
-	case "up":
-		isUpvote = true
-	case "down":
-		isUpvote = false
-	default:
-		return "", ErrInvalidVoteType
-	}
+    var user models.User
+    userCacheKey := "user:" + userID.String()
+    if val, err := conn.RedisClient.Get(ctx, userCacheKey).Result(); err == nil {
+        _ = json.Unmarshal([]byte(val), &user)
+    } else {
+        if err := conn.DB.First(&user, "id = ?", userID).Error; err != nil {
+            return "", meme, err
+        }
+    }
 
-	// ----- Check for existing vote -----
-	var existing models.Vote
-	err := conn.DB.First(&existing, "user_id = ? AND meme_id = ?", userID, memeID).Error
+    var isUpvote bool
+    switch voteType {
+    case "up":
+        isUpvote = true
+    case "down":
+        isUpvote = false
+    default:
+        return "", meme, ErrInvalidVoteType
+    }
 
-	var action string
+    var existing models.Vote
+    err := conn.DB.First(&existing, "user_id = ? AND meme_id = ?", userID, memeID).Error
 
-	if err == nil {
-		// Vote exists
-		if existing.Type == isUpvote {
-			// Toggle off
-			if err := conn.DB.Delete(&existing).Error; err != nil {
-				return "", err
-			}
-			action = "removed"
-		} else {
-			// Flip
-			if err := conn.DB.Model(&existing).Update("type", isUpvote).Error; err != nil {
-				return "", err
-			}
-			action = "flipped"
-		}
-	} else {
-		// New vote
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", err
-		}
-		newVote := models.Vote{
-			ID:     uuid.New(),
-			MemeID: memeID,
-			UserID: userID,
-			Type:   isUpvote,
-		}
-		if err := conn.DB.Create(&newVote).Error; err != nil {
-			return "", err
-		}
-		action = "created"
-	}
+    var action string
+    var message string
 
-	// ----- Send WebSocket Event -----
-	event := ws.VoteEvent{
-		Type:       "vote",
-		MemeID:     meme.ID,
-		MemeTitle:  meme.Title,
-		ImageURL:   meme.ImageURL,
-		UserID:     user.ID,
-		Username:   user.Username,
-		ProfilePic: user.ProfilePic,
-		VoteType:   voteType,
-		Action:     action,
-		Timestamp:  time.Now().UTC(),
-	}
+    if err == nil {
+        if existing.Type == isUpvote {
+            if err := conn.DB.Delete(&existing).Error; err != nil {
+                return "", meme, err
+            }
+            action = "removed"
+            message = "Vote removed successfully"
+        } else {
+            if err := conn.DB.Model(&existing).Update("type", isUpvote).Error; err != nil {
+                return "", meme, err
+            }
+            action = "flipped"
+            message = "Vote flipped successfully"
+        }
+    } else {
+        if !errors.Is(err, gorm.ErrRecordNotFound) {
+            return "", meme, err
+        }
+        newVote := models.Vote{
+            ID:     uuid.New(),
+            MemeID: memeID,
+            UserID: userID,
+            Type:   isUpvote,
+        }
+        if err := conn.DB.Create(&newVote).Error; err != nil {
+            return "", meme, err
+        }
+        action = "created"
+        message = "Vote created successfully"
+    }
 
-	payload, _ := json.Marshal(event)
-	conn.Hub.Broadcast <- payload
+    // Count upvotes/downvotes fresh from DB
+    var upvotes, downvotes int64
+    conn.DB.Model(&models.Vote{}).Where("meme_id = ? AND type = ?", memeID, true).Count(&upvotes)
+    conn.DB.Model(&models.Vote{}).Where("meme_id = ? AND type = ?", memeID, false).Count(&downvotes)
 
-	// ----- Response message -----
-	switch action {
-	case "created":
-		if isUpvote {
-			return "Upvoted", nil
-		}
-		return "Downvoted", nil
-	case "flipped":
-		if isUpvote {
-			return "Flipped to upvote", nil
-		}
-		return "Flipped to downvote", nil
-	case "removed":
-		if isUpvote {
-			return "Removed upvote", nil
-		}
-		return "Removed downvote", nil
-	default:
-		return "Vote action done", nil
-	}
+    // Update meme object with current counts
+    meme.Upvotes = int(upvotes)
+    meme.Downvotes = int(downvotes)
+
+    // Re-cache updated meme
+    data, _ := json.Marshal(meme)
+    conn.RedisClient.Set(ctx, memeCacheKey, data, 10*time.Minute)
+
+    // WebSocket broadcast
+    event := ws.VoteEvent{
+        Type:       "vote",
+        MemeID:     meme.ID,
+        MemeTitle:  meme.Title,
+        ImageURL:   meme.ImageURL,
+        UserID:     user.ID,
+        Username:   user.Username,
+        ProfilePic: user.ProfilePic,
+        VoteType:   voteType,
+        Action:     action,
+        Timestamp:  time.Now().UTC(),
+    }
+    payload, _ := json.Marshal(event)
+    conn.Hub.Broadcast <- payload
+
+    return message, meme, nil
 }
+

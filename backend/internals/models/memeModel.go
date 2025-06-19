@@ -20,4 +20,8 @@ type Meme struct {
 	
 	// Relations
 	Owner User `gorm:"foreignKey:OwnerID;references:ID"`
+
+	// 🔽 These fields are **not** persisted in DB — used for response only
+	Upvotes   int `gorm:"-" json:"upvotes"`
+	Downvotes int `gorm:"-" json:"downvotes"`
 }
