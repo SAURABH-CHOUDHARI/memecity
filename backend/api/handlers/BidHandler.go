@@ -9,10 +9,8 @@ import (
 )
 
 type PlaceBidRequest struct {
-	MemeID  string `json:"meme_id"`
-	Credits int    `json:"credits"`
+	Credits int `json:"credits"`
 }
-
 
 func PlaceBid(conn storage.Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -24,8 +22,14 @@ func PlaceBid(conn storage.Repository) fiber.Handler {
 		}
 
 		user := c.Locals("user").(models.User)
+		memeID := c.Params("id")
+		if memeID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid meme ID",
+			})
+		}
 
-		if err := services.PlaceBid(conn, user.ID, req.MemeID, req.Credits); err != nil {
+		if err := services.PlaceBid(conn, user.ID, memeID, req.Credits); err != nil {
 			code := fiber.StatusInternalServerError
 			if errors.Is(err, services.ErrInvalidBid) || errors.Is(err, services.ErrInsufficientCredits) {
 				code = fiber.StatusBadRequest
