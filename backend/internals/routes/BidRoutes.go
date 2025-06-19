@@ -10,5 +10,5 @@ import (
 func BidRoutes(router fiber.Router, conn storage.Repository){
 	auth:= router.Group("/auth", middlewares.AuthMiddleware(conn))
 	
-	auth.Post("/memes/:id/bids",handlers.PlaceBid(conn))
+	auth.Post("/memes/:id/bid",handlers.PlaceBid(conn))
 }
