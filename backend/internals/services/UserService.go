@@ -17,74 +17,57 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func CreateUser(conn storage.Repository, email, username, password string) (string, error) {
+func CreateUser(conn storage.Repository, email, username, password string) (string, models.User, error) {
 	if email == "" || username == "" || password == "" {
-		return "", errors.New("email, username, and password are required")
+		return "", models.User{}, errors.New("email, username, and password are required")
 	}
 
-	// Check if user already exists
 	var existing models.User
 	if err := conn.DB.Where("email = ?", email).First(&existing).Error; err == nil {
-		return "", errors.New("user with this email already exists")
+		return "", models.User{}, errors.New("user with this email already exists")
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", err
+		return "", models.User{}, err
 	}
 
-	// 🔐 Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", fmt.Errorf("failed to hash password: %w", err)
+		return "", models.User{}, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Create new user
 	newUser := models.User{
 		ID:       uuid.New(),
 		Email:    email,
 		Username: username,
-		Password: string(hashedPassword), // ✅ Save hashed password
+		Password: string(hashedPassword),
 	}
 
 	if err := conn.DB.Create(&newUser).Error; err != nil {
-		return "", err
+		return "", models.User{}, err
 	}
 
-	// Generate JWT
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		return "", errors.New("JWT_SECRET not set")
+		return "", models.User{}, errors.New("JWT_SECRET not set")
 	}
 
 	claims := jwt.MapClaims{
 		"sub":   newUser.ID.String(),
 		"email": newUser.Email,
-		"exp":   time.Now().Add(72 * time.Hour).Unix(),
 		"jti":   uuid.NewString(),
+		"exp":   time.Now().Add(72 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
 	signedToken, err := token.SignedString([]byte(secret))
 	if err != nil {
-		return "", err
+		return "", models.User{}, err
 	}
 
-	// Cache user in Redis
-	userKey := fmt.Sprintf("user:%s", newUser.ID.String())
-	userJSON, err := json.Marshal(newUser)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal user: %w", err)
-	}
+	userJSON, _ := json.Marshal(newUser)
+	conn.RedisClient.Set(context.Background(), fmt.Sprintf("user:%s", newUser.ID.String()), userJSON, 3*24*time.Hour)
 
-	if err := conn.RedisClient.Set(
-		context.Background(),
-		userKey,
-		userJSON,
-		3*24*time.Hour,
-	).Err(); err != nil {
-		return "", fmt.Errorf("failed to store user in redis: %w", err)
-	}
-
-	return signedToken, nil
+	return signedToken, newUser, nil
 }
+
 
 func LogoutUser(conn storage.Repository, authHeader string) error {
 	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
@@ -135,50 +118,43 @@ func LogoutUser(conn storage.Repository, authHeader string) error {
 	return nil
 }
 
-func LoginUser(conn storage.Repository, email, password string) (string, error) {
+func LoginUser(conn storage.Repository, email, password string) (string, models.User, error) {
 	if email == "" || password == "" {
-		return "", errors.New("email and password are required")
+		return "", models.User{}, errors.New("email and password are required")
 	}
 
-	// Find user by email
 	var user models.User
 	if err := conn.DB.Where("email = ?", email).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", errors.New("user not found")
+			return "", models.User{}, errors.New("user not found")
 		}
-		return "", err
+		return "", models.User{}, err
 	}
 
-	// 🔐 Compare hashed password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return "", errors.New("invalid password")
+		return "", models.User{}, errors.New("invalid password")
 	}
 
-	// Generate JWT
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		return "", errors.New("JWT_SECRET not set")
+		return "", models.User{}, errors.New("JWT_SECRET not set")
 	}
 
-	jti := uuid.NewString()
 	claims := jwt.MapClaims{
 		"sub":   user.ID.String(),
 		"email": user.Email,
-		"jti":   jti,
+		"jti":   uuid.NewString(),
 		"exp":   time.Now().Add(72 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err := token.SignedString([]byte(secret))
 	if err != nil {
-		return "", err
+		return "", models.User{}, err
 	}
 
-	// Cache user in Redis
 	userKey := fmt.Sprintf("user:%s", user.ID.String())
 	userJSON, _ := json.Marshal(user)
-	if err := conn.RedisClient.Set(context.Background(), userKey, userJSON, 3*24*time.Hour).Err(); err != nil {
-		return "", fmt.Errorf("failed to store user in redis: %w", err)
-	}
+	conn.RedisClient.Set(context.Background(), userKey, userJSON, 3*24*time.Hour)
 
-	return signedToken, nil
+	return signedToken, user, nil
 }
