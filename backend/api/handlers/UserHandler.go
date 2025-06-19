@@ -28,7 +28,7 @@ func CreateUser(conn storage.Repository) fiber.Handler {
 			})
 		}
 
-		token, err := services.CreateUser(conn, req.Email, req.Username, req.Password)
+		token, user, err := services.CreateUser(conn, req.Email, req.Username, req.Password)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -37,9 +37,17 @@ func CreateUser(conn storage.Repository) fiber.Handler {
 
 		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 			"token": token,
+			"user": fiber.Map{
+				"id":         user.ID,
+				"email":      user.Email,
+				"username":   user.Username,
+				"profilePic": user.ProfilePic,
+				"credits":    user.Credits,
+			},
 		})
 	}
 }
+
 
 func LogOutUser(conn storage.Repository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -68,7 +76,7 @@ func LoginUser(conn storage.Repository) fiber.Handler {
 			})
 		}
 
-		token, err := services.LoginUser(conn, req.Email, req.Password)
+		token, user, err := services.LoginUser(conn, req.Email, req.Password)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": err.Error(),
@@ -77,6 +85,13 @@ func LoginUser(conn storage.Repository) fiber.Handler {
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"token": token,
+			"user": fiber.Map{
+				"id":         user.ID,
+				"email":      user.Email,
+				"username":   user.Username,
+				"profilePic": user.ProfilePic,
+				"credits":    user.Credits,
+			},
 		})
 	}
 }
