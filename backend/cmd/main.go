@@ -72,7 +72,9 @@ func main() {
 		Expiration: 1 * time.Minute,
 	}))
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000",
+		AllowOriginsFunc: func(origin string) bool {
+			return origin == "http://localhost:3000" || origin == "https://memecity-tawny.vercel.app/"
+		},
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowCredentials: true,
 		AllowMethods:     "GET,POST,OPTIONS,DELETE,PATCH",
